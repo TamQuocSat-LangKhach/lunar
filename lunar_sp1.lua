@@ -79,6 +79,7 @@ local gufu = fk.CreateProhibitSkill{
   name = "fk__gufu",
   frequency = Skill.Compulsory,
   prohibit_use = function(self, player, card)
+    if not player:hasSkill(self.name) then return end
     local current = table.find(Fk:currentRoom().alive_players, function(p)
       return p.phase ~= Player.NotActive
     end)
@@ -86,6 +87,7 @@ local gufu = fk.CreateProhibitSkill{
     return current:getMark("fk__kuanyan_target") ~= 0
   end,
   prohibit_response = function(self, player, card)
+    if not player:hasSkill(self.name) then return end
     local current = table.find(Fk:currentRoom().alive_players, function(p)
       return p.phase ~= Player.NotActive
     end)
