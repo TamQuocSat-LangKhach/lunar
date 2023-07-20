@@ -109,7 +109,149 @@ Fk:loadTranslationTable{
   [":fk__gufu"] = "锁定技，在成为过〖款宴〗目标的角色回合内，你不能使用或打出手牌。",
 }
 
--- local guoyouzhi = General(extension, "fk__guoyouzhi", "shu", 3)
+local guoyouzhi = General(extension, "fk__guoyouzhi", "shu", 3)
+local fk__zhongyu = fk.CreateTriggerSkill{
+  name = "fk__zhongyu",
+  anim_type = "support",
+  events = {fk.EventPhaseStart},
+  can_trigger = function(self, event, target, player, data)
+    return player:hasSkill(self.name) and target ~= player and target.phase == Player.Draw
+  end,
+  on_cost = function(self, event, target, player, data)
+    return player.room:askForSkillInvoke(player, self.name, nil, "#fk__zhongyu-invoke:" .. target.id)
+  end,
+  on_use = function(self, event, target, player, data)
+    local room = player.room
+    local i = 0
+    for i = 0, 3 do
+      player:drawCards(1, self.name)
+      target:drawCards(1, self.name)
+      local tos = {player, target}
+      local extraData = {
+        num = 1,
+        min_num = 1,
+        include_equip = true,
+        pattern = ".|.|.|hand,equip|.|.",
+        reason = self.name,
+      }
+      for _, p in ipairs(tos) do
+        p.request_data = json.encode({ "discard_skill", "#fk__zhongyu-discard", true, json.encode(extraData) })
+      end
+      room:notifyMoveFocus(room.alive_players, self.name)
+      room:doBroadcastRequest("AskForUseActiveSkill", tos)
+      local move = {}
+      local colors = {}
+      for _, p in ipairs(tos) do
+        local id
+        if p.reply_ready then
+          local replyCard = json.decode(p.client_reply).card
+          id = json.decode(replyCard).subcards[1]
+        else
+          id = table.random(p:getCardIds{Player.Hand, Player.Equip})
+        end
+        table.insertIfNeed(colors, Fk:getCardById(id):getColorString())
+        table.insert(move, {
+          from = p.id,
+          ids = {id},
+          toArea = Card.DiscardPile,
+          moveReason = fk.ReasonDiscard,
+          proposer = p.id,
+          skillName = self.name,
+          moveVisible = true
+        })
+      end
+      room:moveCards(table.unpack(move))
+      if not (#colors == 1 and not
+        (player:getMark("fk__zhongyu-phase") ~= 0 and table.contains(player:getMark("fk__zhongyu-phase"), colors[1]))) then
+          break
+      else
+        local tmp = table.simpleClone(player:getMark("fk__zhongyu-phase") ~= 0 and player:getMark("fk__zhongyu-phase") or {})
+        table.insertIfNeed(tmp, colors[1])
+        room:setPlayerMark(player, "fk__zhongyu-phase", tmp)
+        room:setPlayerMark(player, "@fk__zhongyu-phase", player:getMark("fk__zhongyu-phase"))
+        if not player.room:askForSkillInvoke(player, self.name, nil, "#fk__zhongyu-invokeR:" .. target.id) then
+        break
+        end
+      end
+    end
+  end,
+}
+local fk__yicha = fk.CreateTriggerSkill{
+  name = "fk__yicha",
+  anim_type = "support",
+  events = {fk.CardUsing},
+  can_trigger = function(self, event, target, player, data)
+    return player:hasSkill(self.name) and player:getMark("fk__yicha-turn") ~= 0 and #player.player_cards[Player.Hand] >= #player:getMark("fk__yicha-turn")
+  end,
+  on_cost = function(self, event, target, player, data)
+    return player.room:askForSkillInvoke(player, self.name, nil, "#fk__yicha-invoke:::" .. #player:getMark("fk__yicha-turn"))
+  end,
+  on_use = function(self, event, target, player, data)
+    local room = player.room
+    local cids = table.slice(room.draw_pile, 1, #player:getMark("fk__yicha-turn") + 1)
+    room:fillAG(player, cids)
+    room:delay(3000)
+    local choices = { "#fk__yicha-cDiscard", "#fk__yicha-cExchange", "#fk__yicha-cGuan" }
+    local choice = room:askForChoice(player, choices, self.name, "#fk__yicha-choice")
+    if choice == "#fk__yicha-cDiscard" then
+      room:closeAG(player)
+      local ret = room:askForGuanxing(player, cids, nil, nil, self.name, true, { "Top", "pile_discard" }).bottom
+      room:moveCardTo(ret, Card.DiscardPile, nil, fk.ReasonDiscard, self.name, nil, true)
+    elseif choice == "#fk__yicha-cExchange" then
+      local cidsE = room:askForCard(player, 1, 1, true, self.name, false, ".|.|.|hand", "#fk__yicha-cExchange-choose")
+      if #cidsE < 1 then
+        cidsE = table.random(player:getCardIds({Player.Hand, Player.Equip}), 1)
+      end
+      room:closeAG(player)
+      local ret = room:askForExchange(player, { cids, cidsE }, { "Top", player.general })
+      local takedown = ret[2]
+      local insPos = table.indexOf(cids, takedown[1])
+      room:moveCards(
+        {
+          ids = takedown,
+          to = player.id,
+          toArea = Card.PlayerHand,
+          moveReason = fk.ReasonExchange,
+          proposer = player.id,
+          skillName = self.name,
+        },
+        {
+          ids = cidsE,
+          from = player.id,
+          toArea = Card.DrawPile,
+          moveReason = fk.ReasonExchange,
+          proposer = player.id,
+          skillName = self.name,
+          drawPilePosition = insPos
+        }
+      )
+    elseif choice == "#fk__yicha-cGuan" then
+      room:closeAG(player)
+      room:askForGuanxing(player, room:getNCards(#player:getMark("fk__yicha-turn")), nil, { 0, 0 }, self.name, false, { "Top", "" })
+    end
+  end,
+  refresh_events = {fk.AfterCardsMove},
+  can_refresh = function(self, event, target, player, data)
+    if player:hasSkill(self.name, true) then
+      local room = player.room
+      for _, move in ipairs(data) do
+        if move.toArea == Card.DiscardPile then
+          local tmp = table.simpleClone(player:getMark("fk__yicha-turn") ~= 0 and player:getMark("fk__yicha-turn") or {})
+          for _, info in ipairs(move.moveInfo) do
+            table.insertIfNeed(tmp, Fk:getCardById(info.cardId):getSuitString(true))
+          end
+          room:setPlayerMark(player, "fk__yicha-turn", tmp)
+          return player:getMark("fk__yicha-turn") ~= 0
+        end
+      end
+    end
+  end,
+  on_refresh = function(self, event, target, player, data)
+    player.room:setPlayerMark(player, "@fk__yicha-turn", table.concat(table.map(player:getMark("fk__yicha-turn"), function(s) return Fk:translate(s) end)))
+  end
+}
+guoyouzhi:addSkill(fk__zhongyu)
+guoyouzhi:addSkill(fk__yicha)
 Fk:loadTranslationTable{
   ['fk__guoyouzhi'] = '郭攸之',
   ['designer:fk__guoyouzhi'] = 's1134s',
@@ -117,10 +259,21 @@ Fk:loadTranslationTable{
   [':fk__zhongyu'] = '其他角色的出牌阶段开始时，你可以与其各摸一张牌' ..
     '并同时弃置一张牌，若弃置的两张牌的颜色相同且与本阶段内以此法弃置过' ..
     '的其他的牌的颜色不同，你可以重复此流程。',
+  ['#fk__zhongyu-invoke'] = '忠喻：你可与 %src 各摸一张牌',
+  ['#fk__zhongyu-invokeR'] = '忠喻：你可继续与 %src 各摸一张牌',
+  ['#fk__zhongyu-discard'] = '忠喻：你须弃置一张牌',
+  ['@fk__zhongyu-phase'] = '忠喻',
   ['fk__yicha'] = '益察',
   [':fk__yicha'] = '当你使用牌时，若你的手牌数不小于X，你可以观看牌堆顶的X张牌' ..
     '并选择：1. 将其中任意张牌置入弃牌堆；2. 用一张牌交换其中的一张牌；' ..
     '3. 将这些牌以任意顺序置于牌堆顶。（X为本回合内进入弃牌堆内的牌的总花色数）',
+  ['#fk__yicha-invoke'] = '益察：你可观看牌堆顶%arg张牌并进行操作',
+  ['#fk__yicha-choice'] = '益察：请选择一种操作',
+  ['#fk__yicha-cDiscard'] = '弃置任意张牌',
+  ['#fk__yicha-cExchange'] = '用一张牌与其中一张牌交换',
+  ['#fk__yicha-cExchange-choose'] = '益察：你须选择一张牌',
+  ['#fk__yicha-cGuan'] = '以任意顺序置于牌堆顶',
+  ['@fk__yicha-turn'] = '益察',
 }
 
 return extension
