@@ -7,6 +7,7 @@ Fk:loadTranslationTable{
 }
 
 -- 新月杀第一届DIY选拔： 吕伯奢，郭攸之
+
 local lvboshe = General(extension, "fk__lvboshe", "qun", 3)
 local kuanyanTrig = fk.CreateTriggerSkill{
   name = "#fk__kuanyan",
@@ -98,6 +99,7 @@ local gufu = fk.CreateProhibitSkill{
 lvboshe:addSkill(gufu)
 Fk:loadTranslationTable{
   ["fk__lvboshe"] = "吕伯奢",
+  ["designer:fk__lvboshe"] = "一如遥远往昔",
   ["fk__kuanyan"] = "款宴",
   [":fk__kuanyan"] = "出牌阶段限一次，你可以弃置一张牌并选择一名其他角色，" ..
     "直至你的下个回合开始，该角色每回合使用第一张基本牌和锦囊牌后，" ..
@@ -105,6 +107,20 @@ Fk:loadTranslationTable{
   ["#fk__kuanyan-ask"] = "款宴: 请交给 %src 一张牌",
   ["fk__gufu"] = "故负",
   [":fk__gufu"] = "锁定技，在成为过〖款宴〗目标的角色回合内，你不能使用或打出手牌。",
+}
+
+-- local guoyouzhi = General(extension, "fk__guoyouzhi", "shu", 3)
+Fk:loadTranslationTable{
+  ['fk__guoyouzhi'] = '郭攸之',
+  ['designer:fk__guoyouzhi'] = 's1134s',
+  ['fk__zhongyu'] = '忠喻',
+  [':fk__zhongyu'] = '其他角色的出牌阶段开始时，你可以与其各摸一张牌' ..
+    '并同时弃置一张牌，若弃置的两张牌的颜色相同且与本阶段内以此法弃置过' ..
+    '的其他的牌的颜色不同，你可以重复此流程。',
+  ['fk__yicha'] = '益察',
+  [':fk__yicha'] = '当你使用牌时，若你的手牌数不小于X，你可以观看牌堆顶的X张牌' ..
+    '并选择：1. 将其中任意张牌置入弃牌堆；2. 用一张牌交换其中的一张牌；' ..
+    '3. 将这些牌以任意顺序置于牌堆顶。（X为本回合内进入弃牌堆内的牌的总花色数）',
 }
 
 return extension
