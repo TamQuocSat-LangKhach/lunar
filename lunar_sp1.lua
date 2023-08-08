@@ -15,7 +15,7 @@ local kuanyanTrig = fk.CreateTriggerSkill{
   events = {fk.CardUsing},
   can_trigger = function(self, event, target, player, data)
     if player:hasSkill(self.name) and player:getMark("fk__kuanyan") == target.id then
-      return player:getMark("fk__kuanyan" .. data.card.type) == 0 and
+      return player:getMark("fk__kuanyan" .. data.card.type .. "-turn") == 0 and
         (data.card.type == Card.TypeBasic or data.card.type == Card.TypeTrick)
     end
   end,
@@ -24,7 +24,7 @@ local kuanyanTrig = fk.CreateTriggerSkill{
     local room = player.room
     room:broadcastSkillInvoke("fk__kuanyan")
     room:notifySkillInvoked(player, "fk__kuanyan")
-    room:addPlayerMark(player, "fk__kuanyan" .. data.card.type, 1)
+    room:addPlayerMark(player, "fk__kuanyan" .. data.card.type .. "-turn", 1)
 
     player:drawCards(2, "fk__kuanyan")
     local card = room:askForCard(player, 1, 1, true, "fk__kuanyan", false, ".", "#fk__kuanyan-ask:" .. target.id)
