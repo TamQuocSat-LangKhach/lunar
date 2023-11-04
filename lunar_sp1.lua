@@ -14,7 +14,7 @@ local kuanyanTrig = fk.CreateTriggerSkill{
   mute = true,
   events = {fk.CardUsing},
   can_trigger = function(self, event, target, player, data)
-    if player:hasSkill(self.name) and player:getMark("fk__kuanyan") == target.id then
+    if player:hasSkill(self) and player:getMark("fk__kuanyan") == target.id then
       return player:getMark("fk__kuanyan" .. data.card.type .. "-turn") == 0 and
         (data.card.type == Card.TypeBasic or data.card.type == Card.TypeTrick)
     end
@@ -80,7 +80,7 @@ local gufu = fk.CreateProhibitSkill{
   name = "fk__gufu",
   frequency = Skill.Compulsory,
   prohibit_use = function(self, player, card)
-    if not player:hasSkill(self.name) then return end
+    if not player:hasSkill(self) then return end
     local current = table.find(Fk:currentRoom().alive_players, function(p)
       return p.phase ~= Player.NotActive
     end)
@@ -88,7 +88,7 @@ local gufu = fk.CreateProhibitSkill{
     return current:getMark("fk__kuanyan_target") ~= 0
   end,
   prohibit_response = function(self, player, card)
-    if not player:hasSkill(self.name) then return end
+    if not player:hasSkill(self) then return end
     local current = table.find(Fk:currentRoom().alive_players, function(p)
       return p.phase ~= Player.NotActive
     end)
@@ -115,7 +115,7 @@ local fk__zhongyu = fk.CreateTriggerSkill{
   anim_type = "support",
   events = {fk.EventPhaseStart},
   can_trigger = function(self, event, target, player, data)
-    return player:hasSkill(self.name) and target ~= player and target.phase == Player.Play
+    return player:hasSkill(self) and target ~= player and target.phase == Player.Play
   end,
   on_cost = function(self, event, target, player, data)
     return player.room:askForSkillInvoke(player, self.name, nil, "#fk__zhongyu-invoke:" .. target.id)
@@ -182,7 +182,7 @@ local fk__yicha = fk.CreateTriggerSkill{
   -- events = {fk.CardUsing},
   events = {fk.BeforeDrawCard, fk.StartJudge},
   can_trigger = function(self, event, target, player, data)
-    if target ~= player or not player:hasSkill(self.name) then return false end 
+    if target ~= player or not player:hasSkill(self) then return false end 
     if event == fk.BeforeDrawCard then return data.num >= 1 end
     --[[
     local x = player:getMark("fk__yicha-turn")
