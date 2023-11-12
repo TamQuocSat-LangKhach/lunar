@@ -22,7 +22,7 @@ local kuanyanTrig = fk.CreateTriggerSkill{
   on_cost = function() return true end,
   on_use = function(self, event, target, player, data)
     local room = player.room
-    room:broadcastSkillInvoke("fk__kuanyan")
+    player:broadcastSkillInvoke("fk__kuanyan")
     room:notifySkillInvoked(player, "fk__kuanyan")
     room:addPlayerMark(player, "fk__kuanyan" .. data.card.type .. "-turn", 1)
 
@@ -201,7 +201,14 @@ local fk__yicha = fk.CreateTriggerSkill{
     local room = player.room
     local x = player:getMark("fk__yicha-turn")
     if x ~= 0 then x = #x end
-    local cids = table.slice(room.draw_pile, 1, (5 - x) + 1)
+    x = 5 - x
+    if #room.draw_pile < x then
+      room:shuffleDrawPile()
+      if #room.draw_pile < x then
+        room:gameOver("")
+      end
+    end
+    local cids = table.slice(room.draw_pile, 1, x + 1)
     -- room:fillAG(player, cids)
     -- room:delay(3000)
     -- local card_arg = table.concat(table.map(cids,
@@ -222,8 +229,12 @@ local fk__yicha = fk.CreateTriggerSkill{
     if choice == "#fk__yicha-cDiscard" then
       -- room:closeAG(player)
     --]]
-    local ret = room:askForGuanxing(player, cids, nil, nil, self.name, true, { "Top", "pile_discard" }).bottom
-    room:moveCardTo(ret, Card.DiscardPile, nil, fk.ReasonDiscard, self.name, nil, true)
+    local to_discard = room:askForCardsChosen(player, player, 0, #cids, {
+      card_data = {
+        { "Top", cids }
+      }
+    }, self.name, "#fk__yicha-discard:::" .. x)
+    room:moveCardTo(to_discard, Card.DiscardPile, nil, fk.ReasonPutIntoDiscardPile, self.name)
       --[[
     elseif choice == "#fk__yicha-cExchange" then
       local cidsE = room:askForCard(player, 1, 1, true, self.name, false, ".|.|.|hand", "#fk__yicha-cExchange-choose")
@@ -294,14 +305,15 @@ Fk:loadTranslationTable{
   ['@fk__zhongyu-phase'] = '忠喻',
   ['fk__yicha'] = '益察',
   [':fk__yicha'] = '当你即将判定或者摸牌时，你可以观看牌堆顶的5-X张牌' ..
-    '并弃置其中任意张牌。（X为本回合内进入弃牌堆内的牌的总花色数）',
-  ['#fk__yicha-invoke'] = '益察：你可观看牌堆顶 %arg 张牌并进行操作',
+    '并将其中任意张牌置入弃牌堆。（X为本回合内进入弃牌堆内的牌的总花色数）',
+  ['#fk__yicha-invoke'] = '益察：你可观看牌堆顶 %arg 张牌并将其中任意张牌置入弃牌堆',
   --['#fk__yicha-choice'] = '益察：牌堆顶的 %arg 牌分别是 %arg2 , 请选择一种操作',
   --['#fk__yicha-cDiscard'] = '弃置任意张牌',
   --['#fk__yicha-cExchange'] = '用一张牌与其中一张牌交换',
   --['#fk__yicha-cExchange-choose'] = '益察：你须选择一张牌',
   --['#fk__yicha-cGuan'] = '以任意顺序置于牌堆顶',
   ['@fk__yicha-turn'] = '益察',
+  ["#fk__yicha-discard"] = "益察：观看牌堆顶 %arg 张牌，可将其中任意张牌置入弃牌堆",
 }
 
 return extension
