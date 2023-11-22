@@ -625,7 +625,7 @@ local fk__xiaorong = fk.CreateTriggerSkill{
       local num = #table.filter(player.room.alive_players, function (p)
         return p:distanceTo(player) == 1
       end)
-      local tos = room:askForChoosePlayers(player, targets, num, num, "#fk__xiaorong:::" .. num, self.name, true)
+      local tos = room:askForChoosePlayers(player, targets, 1, num, "#fk__xiaorong:::" .. num, self.name, true)
       if #tos > 0 then
         self.cost_data = tos
         return true
@@ -671,11 +671,11 @@ Fk:loadTranslationTable{
   ["fk__zhangwei"] = "张葳",
   ["designer:fk__zhangwei"] = "郭攸之的设计修改者",
   ["fk__xiaorong"] = "骁戎",
-  [":fk__xiaorong"] = "当你使用【杀】选择目标后，若目标角色数为1，你可以令X名其他角色也成为此【杀】的目标，然后若此【杀】的目标数大于你的体力值，你令此【杀】改为【决斗】（X为至你距离为1的角色）。",
+  [":fk__xiaorong"] = "当你使用【杀】选择目标后，若目标角色数为1，你可以令至多X名其他角色也成为此【杀】的目标，然后若此【杀】的目标数大于你的体力值，你令此【杀】改为【决斗】（X为至你距离为1的角色）。",
   ["fk__yiyong"] = "义勇",
   [":fk__yiyong"] = "当你对手牌数大于你的角色造成伤害后，你可以摸两张牌，然后你本回合使用【杀】次数上限+1。",
 
-  ["#fk__xiaorong"] = "骁戎：你可令%arg名其他角色成为此【杀】的目标",
+  ["#fk__xiaorong"] = "骁戎：你可令至多%arg名其他角色成为此【杀】的目标",
   ["@fk__yiyong-turn"] = "义勇",
 }
 return extension
