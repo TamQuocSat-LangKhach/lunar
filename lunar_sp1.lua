@@ -298,6 +298,7 @@ guoyouzhi:addSkill(fk__yicha)
 Fk:loadTranslationTable{
   ['fk__guoyouzhi'] = '郭攸之',
   ['designer:fk__guoyouzhi'] = 's1134s',
+  ["illustrator:fk__guoyouzhi"] = "三国志",
   ['fk__zhongyu'] = '忠喻',
   [':fk__zhongyu'] = '其他角色的出牌阶段开始时，你可以与其各摸一张牌' ..
     '并依次弃置一张牌，若弃置的两张牌的颜色相同，其摸一张牌。',
@@ -402,6 +403,8 @@ yingyang:addSkill(fk__beili)
 Fk:loadTranslationTable{
   ["fk__yingyang"] = "应玚",
   ["designer:fk__yingyang"] = "小嘤嘤",
+  ["cv:fk__yingyang"] = "万事屋",
+  ["illustrator:fk__yingyang"] = "网络",
   ["fk__guici"] = "瑰词",
   [":fk__guici"] = "转换技，锁定技，每轮开始时，你从牌堆中获得：阳：四张花色各不相同的牌；阴：三张类型各不相同的牌。",
   ["@@fk__guici-inhand"] = "瑰词",
@@ -409,7 +412,6 @@ Fk:loadTranslationTable{
   [":fk__beili"] = "每当一名角色受到伤害后，你可以弃置一张牌，令其摸一张牌，若你以此法弃置了“瑰词”牌，你摸一张牌。",
   ["#fk__beili-discard"] = "悲离：你可弃一张牌，令 %dest 摸一张牌，若弃置“瑰词”牌，你摸一张牌。",
 
-  -- CV：万事屋
   ["$fk__guici1"] = "涉津洛之阪泉兮，播九道乎中州。",
   ["$fk__guici2"] = "衔积石之重险兮，披山麓而溢浮。",
   ["$fk__beili1"] = "有鸟孤栖，哀鸣北林。嗟我怀矣，感物伤心。",
@@ -495,6 +497,8 @@ liuyin:addSkill(fk__fapi)
 Fk:loadTranslationTable{
   ["fk__liuyin"] = "柳隐",
   ["designer:fk__liuyin"] = "白幽",
+  ["cv:fk__liuyin"] = "某宝",
+  ["illustrator:fk__liuyin"] = "网络",
   ["fk__gushou"] = "固守",
   [":fk__gushou"] = "每回合每项各限一次，当你受到伤害时，你可以：1.弃置一张牌，然后回复1点体力；2.失去一点体力，防止此伤害，然后摸一张牌。",
   ["fk__gushou_discard"] = "弃置一张牌，然后回复1点体力",
@@ -593,6 +597,8 @@ zhangbu:addSkill(fk__zhuanzheng)
 Fk:loadTranslationTable{
   ["fk__zhangbu"] = "张布",
   ["designer:fk__zhangbu"] = "理塘王",
+  ["cv:fk__zhangbu"] = "某宝",
+  ["illustrator:fk__zhangbu"] = "啪啪三国",
   ["fk__guzhu"] = "孤注",
   [":fk__guzhu"] = "一名角色使用基本牌指定目标后，你可以弃置所有手牌，令此牌额外结算一次。",
   ["#fk__guzhu-invoke"] = "孤注：你可以弃置所有手牌，令 %dest 使用的 %arg 额外结算一次",
@@ -669,6 +675,7 @@ fk__yiyong:addRelatedSkill(fk__yiyong_buff)
 zhangwei:addSkill(fk__yiyong)
 Fk:loadTranslationTable{
   ["fk__zhangwei"] = "张葳",
+  ["illustrator:fk__zhangwei"] = "木美人",
   ["designer:fk__zhangwei"] = "郭攸之的设计修改者",
   ["fk__xiaorong"] = "骁戎",
   [":fk__xiaorong"] = "当你使用【杀】选择目标后，若目标角色数为1，你可以令至多X名其他角色也成为此【杀】的目标，然后若此【杀】的目标数大于你的体力值，你令此【杀】改为【决斗】（X为至你距离为1的角色）。",
