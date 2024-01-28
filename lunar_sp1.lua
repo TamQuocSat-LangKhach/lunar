@@ -4,8 +4,8 @@ extension.extensionName = "lunar"
 local U = require "packages/utility/utility"
 
 Fk:loadTranslationTable{
-  lunar_sp1 = "新月杀专属",
-  fk = "新月",
+  ["lunar_sp1"] = "新月杀专属",
+  ["fk"] = "新月",
 }
 
 -- 新月杀第一届DIY选拔： 吕伯奢，郭攸之
@@ -532,16 +532,20 @@ local fk__guzhu = fk.CreateTriggerSkill{
     data.extra_data = data.extra_data or {}
     data.extra_data.fk__guzhu = true
   end,
-
-  refresh_events = {fk.CardUseFinished},
-  can_refresh = function(self, event, target, player, data)
-    return data.extra_data and data.extra_data.fk__guzhu
+}
+local fk__guzhu_delay = fk.CreateTriggerSkill{
+  name = "#fk__guzhu_delay",
+  mute = true,
+  events = {fk.CardUseFinished},
+  can_trigger = function(self, event, target, player, data)
+    return data.extra_data and data.extra_data.fk__guzhu and target == player
   end,
-  on_refresh = function(self, event, target, player, data)
+  on_cost = Util.TrueFunc,
+  on_use = function(self, event, target, player, data)
     player.room:doCardUseEffect(data)
-    data.extra_data.fk__guzhu = false
   end,
 }
+fk__guzhu:addRelatedSkill(fk__guzhu_delay)
 zhangbu:addSkill(fk__guzhu)
 local fk__zhuanzheng = fk.CreateTriggerSkill{
   name = "fk__zhuanzheng",
@@ -596,12 +600,14 @@ local fk__zhuanzheng = fk.CreateTriggerSkill{
 zhangbu:addSkill(fk__zhuanzheng)
 Fk:loadTranslationTable{
   ["fk__zhangbu"] = "张布",
+  ["#fk__zhangbu"] = "激浪迴环",
   ["designer:fk__zhangbu"] = "理塘王",
   ["cv:fk__zhangbu"] = "某宝",
   ["illustrator:fk__zhangbu"] = "啪啪三国",
   ["fk__guzhu"] = "孤注",
   [":fk__guzhu"] = "一名角色使用基本牌指定目标后，你可以弃置所有手牌，令此牌额外结算一次。",
   ["#fk__guzhu-invoke"] = "孤注：你可以弃置所有手牌，令 %dest 使用的 %arg 额外结算一次",
+  ["#fk__guzhu_delay"] = "孤注",
   ["fk__zhuanzheng"] = "专政",
   [":fk__zhuanzheng"] = "一名角色失去手牌后，若其没有手牌，你可以失去1点体力，令其将手牌摸至体力上限（至多摸五张）。",
   ["#fk__zhuanzheng-invoke"] = "专政：你可以失去1点体力，令 %dest 将手牌摸至体力上限（至多摸五张）",
