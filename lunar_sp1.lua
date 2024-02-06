@@ -522,30 +522,15 @@ local fk__guzhu = fk.CreateTriggerSkill{
   events = {fk.TargetSpecified},
   can_trigger = function(self, event, target, player, data)
     return player:hasSkill(self) and data.card.type == Card.TypeBasic and data.firstTarget and not player:isKongcheng()
-    and not (data.extra_data and data.extra_data.fk__guzhu)
   end,
   on_cost = function (self, event, target, player, data)
     return player.room:askForSkillInvoke(player, self.name, data, "#fk__guzhu-invoke::"..target.id..":"..data.card.name)
   end,
   on_use = function(self, event, target, player, data)
     player:throwAllCards("h")
-    data.extra_data = data.extra_data or {}
-    data.extra_data.fk__guzhu = true
+    data.additionalEffect = (data.additionalEffect or 0) + 1
   end,
 }
-local fk__guzhu_delay = fk.CreateTriggerSkill{
-  name = "#fk__guzhu_delay",
-  mute = true,
-  events = {fk.CardUseFinished},
-  can_trigger = function(self, event, target, player, data)
-    return data.extra_data and data.extra_data.fk__guzhu and target == player
-  end,
-  on_cost = Util.TrueFunc,
-  on_use = function(self, event, target, player, data)
-    player.room:doCardUseEffect(data)
-  end,
-}
-fk__guzhu:addRelatedSkill(fk__guzhu_delay)
 zhangbu:addSkill(fk__guzhu)
 local fk__zhuanzheng = fk.CreateTriggerSkill{
   name = "fk__zhuanzheng",
@@ -607,7 +592,6 @@ Fk:loadTranslationTable{
   ["fk__guzhu"] = "孤注",
   [":fk__guzhu"] = "一名角色使用基本牌指定目标后，你可以弃置所有手牌，令此牌额外结算一次。",
   ["#fk__guzhu-invoke"] = "孤注：你可以弃置所有手牌，令 %dest 使用的 %arg 额外结算一次",
-  ["#fk__guzhu_delay"] = "孤注",
   ["fk__zhuanzheng"] = "专政",
   [":fk__zhuanzheng"] = "一名角色失去手牌后，若其没有手牌，你可以失去1点体力，令其将手牌摸至体力上限（至多摸五张）。",
   ["#fk__zhuanzheng-invoke"] = "专政：你可以失去1点体力，令 %dest 将手牌摸至体力上限（至多摸五张）",
@@ -691,4 +675,102 @@ Fk:loadTranslationTable{
   ["#fk__xiaorong"] = "骁戎：你可令至多%arg名其他角色成为此【杀】的目标",
   ["@fk__yiyong-turn"] = "义勇",
 }
+
+local liyans = General(extension, "fk__liyans", "shu", 3)
+local duliang = fk.CreateActiveSkill{
+  name = "fk__duliang",
+  anim_type = "support",
+  card_num = 0,
+  target_num = 1,
+  prompt = "#fk__duliang",
+  can_use = function(self, player)
+    return player:usedSkillTimes(self.name, Player.HistoryPhase) == 0
+  end,
+  card_filter = Util.FalseFunc,
+  target_filter = function(self, to_select, selected)
+    local flag = (to_select == Self.id) and "ej" or "hej"
+    return #selected == 0 and #Fk:currentRoom():getPlayerById(to_select):getCardIds(flag) > 0
+  end,
+  on_use = function(self, room, effect)
+    local player = room:getPlayerById(effect.from)
+    local target = room:getPlayerById(effect.tos[1])
+    local flag = (target == player) and "ej" or "hej"
+    local get = room:askForCardChosen(player, target, flag, self.name)
+    room:obtainCard(player, get, false, fk.ReasonPrey)
+    if player.dead or target.dead then return end
+    local choice = room:askForChoice(player, {"duliang_put", "duliang_draw"}, self.name)
+    if choice == "duliang_put" then
+      local put = room:askForCard(player, 1, 999, false, self.name, true, ".", "#fk__duliang-put")
+      if #put == 0 then return end
+      if #put > 1 then
+        put = room:askForGuanxing(player, put, nil, {0,0}, self.name, true).top
+      end
+      room:moveCards({
+        ids = table.reverse(put),
+        from = player.id,
+        toArea = Card.DrawPile,
+        moveReason = fk.ReasonPut,
+        skillName = self.name,
+        proposer = player.id,
+      })
+      if not target.dead then
+        local cards = room:getNCards(#put + 1)
+        U.viewCards(target, cards, self.name)
+        local types = {}
+        for _, id in ipairs(put) do
+          table.insertIfNeed(types, Fk:getCardById(id).type)
+        end
+        for i = #cards, 1, -1 do
+          local id = cards[i]
+          if not table.contains(types, Fk:getCardById(id).type) then
+            table.insert(room.draw_pile, 1, id)
+            table.remove(cards, i)
+          end
+        end
+        if #cards > 0 then
+          room:moveCardTo(cards, Card.PlayerHand, target, fk.ReasonPrey, self.name, "", false)
+        end
+        if not player.dead then
+          player:drawCards(1, self.name)
+        end
+      end
+    else
+      room:addPlayerMark(target, "@duliang", 1)
+    end
+  end,
+}
+local duliang_trigger = fk.CreateTriggerSkill{
+  name = "#fk__duliang_trigger",
+  mute = true,
+  events = {fk.DrawNCards},
+  can_trigger = function(self, event, target, player, data)
+    return target == player and player:getMark("@duliang") > 0
+  end,
+  on_cost = Util.TrueFunc,
+  on_use = function(self, event, target, player, data)
+    data.n = data.n + player:getMark("@duliang")
+    player.room:setPlayerMark(player, "@duliang", 0)
+  end,
+}
+duliang:addRelatedSkill(duliang_trigger)
+liyans:addSkill(duliang)
+liyans:addSkill("fulin")
+Fk:loadTranslationTable{
+  ["fk__liyans"] = "李严",
+  ["#fk__liyans"] = "矜风流务",
+  ["designer:fk__liyans"] = "喜欢我曹金玉吗",
+  ["illustrator:fk__liyans"] = "游漫美绘",
+
+  ["fk__duliang"] = "督粮",
+  [":fk__duliang"] = "出牌阶段限一次，你可以获得一名角色区域内的一张牌然后选择一项：1.将任意张手牌置于牌堆顶，若如此做，令其观看牌堆顶的X+1张牌并获得其中与你置于牌堆顶的牌含有的类型的牌，然后你摸一张牌；2.其下个摸牌阶段多摸一张牌（X为你置于牌堆顶的牌数）。",
+  ["#fk__duliang"] = "督粮：获得一名角色区域内的一张牌",
+  ["#fk__duliang_trigger"] = "督粮",
+  ["duliang_put"] = "将任意张手牌置于牌堆顶",
+  ["#fk__duliang-put"] = "督粮：将任意张手牌置于牌堆顶",
+
+  ["$fk__duliang1"] = "运粮督战，以解前线之危。",
+  ["$fk__duliang2"] = "不必催督，辎重稍后即至。",
+  ["~fk__liyans"] = "权迷心智，吾，枉为人臣！",
+}
+
 return extension
