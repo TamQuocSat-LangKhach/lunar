@@ -11,29 +11,57 @@ Fk:loadTranslationTable{
 -- 新月杀第一届DIY选拔： 吕伯奢，郭攸之
 
 local lvboshe = General(extension, "fk__lvboshe", "qun", 4)
-local kuanyanTrig = fk.CreateTriggerSkill{
-  name = "#fk__kuanyan",
+local kuanyan = fk.CreateActiveSkill{
+  name = "fk__kuanyan",
+  anim_type = "support",
+  can_use = function (self, player, card)
+    return player:usedSkillTimes(self.name, Player.HistoryPhase) == 0 and not player:isNude()
+  end,
+  card_num = 1,
+  target_num = 1,
+  card_filter = function(self, to_select, selected)
+    return #selected == 0 and not Self:prohibitDiscard(Fk:getCardById(to_select))
+  end,
+  target_filter = function(self, to_select, selected)
+    return #selected == 0 and to_select ~= Self.id
+  end,
+  on_use = function (self, room, effect)
+    local player = room:getPlayerById(effect.from)
+    local to = room:getPlayerById(effect.tos[1])
+    local card = effect.cards[1]
+    room:throwCard(card, self.name, player, player)
+    if player.dead or to.dead then return end
+    local mark = U.getMark(player, self.name)
+    table.insertIfNeed(mark, to.id)
+    room:setPlayerMark(player, self.name, mark)
+    room:setPlayerMark(to, "fk__kuanyan_target", 1)
+  end
+}
+local kuanyan_delay = fk.CreateTriggerSkill{
+  name = "#kuanyan_delay",
   mute = true,
-  events = {fk.CardUsing},
+  events = {fk.CardUseFinished},
   can_trigger = function(self, event, target, player, data)
-    if player:hasSkill(self) and player:getMark("fk__kuanyan") == target.id then
-      return player:getMark("fk__kuanyan" .. data.card.type .. "-turn") == 0 and
-        (data.card.type == Card.TypeBasic or data.card.type == Card.TypeTrick)
+    if player:hasSkill(self) and table.contains(U.getMark(player, "fk__kuanyan"), target.id) and data.card.type ~= Card.TypeEquip then
+      local events = player.room.logic:getEventsOfScope(GameEvent.UseCard, 1, function(e)
+        local use = e.data[1]
+        return use.from == target.id and use.card.type == data.card.type
+      end, Player.HistoryTurn)
+      return #events > 0 and events[1].data[1] == data
     end
   end,
-  on_cost = function() return true end,
+  on_cost = Util.TrueFunc,
   on_use = function(self, event, target, player, data)
     local room = player.room
     player:broadcastSkillInvoke("fk__kuanyan")
     room:notifySkillInvoked(player, "fk__kuanyan")
-    room:addPlayerMark(player, "fk__kuanyan" .. data.card.type .. "-turn", 1)
-
     player:drawCards(2, "fk__kuanyan")
-    local card = room:askForCard(player, 1, 1, true, "fk__kuanyan", false, ".", "#fk__kuanyan-ask:" .. target.id)
-    room:obtainCard(target.id, card[1], false, fk.ReasonGive)
-
-    if not table.find(room:getOtherPlayers(target), function(p)
-      return p.hp > target.hp
+    if not player:isNude() and not target.dead then
+      local card = room:askForCard(player, 1, 1, true, "fk__kuanyan", false, ".", "#fk__kuanyan-ask:" .. target.id)
+      room:moveCardTo(card, Card.PlayerHand, target, fk.ReasonGive, self.name, nil, false, player.id)
+    end
+    if not target.dead and not table.find(room.alive_players, function(p)
+      return p.hp < target.hp
     end) then
       room:recover{
         who = target,
@@ -44,58 +72,38 @@ local kuanyanTrig = fk.CreateTriggerSkill{
     end
   end,
 
-  refresh_events = {fk.EventPhaseStart},
+  refresh_events = {fk.TurnStart},
   can_refresh = function(self, event, target, player, data)
-    return target == player and player:hasSkill("fk__kuanyan") and player.phase == Player.RoundStart
+    return target == player and player:hasSkill(kuanyan)
   end,
   on_refresh = function(_, _, _, player)
     player.room:setPlayerMark(player, "fk__kuanyan", 0)
   end,
 }
-local kuanyan = fk.CreateActiveSkill{
-  name = "fk__kuanyan",
-  anim_type = "support",
-  can_use = function (self, player, card)
-    return player:usedSkillTimes(self.name, Player.HistoryPhase) == 0
-  end,
-  card_num = 1,
-  target_num = 1,
-  card_filter = function(self, to_select, selected)
-    return #selected == 0
-  end,
-  target_filter = function(self, to_select, selected)
-    return #selected == 0 and to_select ~= Self.id
-  end,
-  on_use = function (self, room, effect)
-    local from = room:getPlayerById(effect.from)
-    local to = room:getPlayerById(effect.tos[1])
-    local card = effect.cards[1]
-
-    room:throwCard(card, self.name, from, from)
-    room:setPlayerMark(from, self.name, to.id)
-    room:setPlayerMark(to, "fk__kuanyan_target", 1)
-  end
-}
-kuanyan:addRelatedSkill(kuanyanTrig)
+kuanyan:addRelatedSkill(kuanyan_delay)
 lvboshe:addSkill(kuanyan)
 local gufu = fk.CreateProhibitSkill{
   name = "fk__gufu",
   frequency = Skill.Compulsory,
   prohibit_use = function(self, player, card)
-    if not player:hasSkill(self) then return end
-    local current = table.find(Fk:currentRoom().alive_players, function(p)
-      return p.phase ~= Player.NotActive
-    end)
-    if not current then return false end
-    return current:getMark("fk__kuanyan_target") ~= 0
+    if player:hasSkill(self) and table.find(Fk:currentRoom().alive_players, function(p)
+      return p.phase ~= Player.NotActive and p:getMark("fk__kuanyan_target") ~= 0
+    end) then
+      local subcards = card:isVirtual() and card.subcards or {card.id}
+      return #subcards > 0 and table.every(subcards, function(id)
+        return table.contains(player:getCardIds(Player.Hand), id)
+      end)
+    end
   end,
   prohibit_response = function(self, player, card)
-    if not player:hasSkill(self) then return end
-    local current = table.find(Fk:currentRoom().alive_players, function(p)
-      return p.phase ~= Player.NotActive
-    end)
-    if not current then return false end
-    return current:getMark("fk__kuanyan_target") ~= 0
+    if player:hasSkill(self) and table.find(Fk:currentRoom().alive_players, function(p)
+      return p.phase ~= Player.NotActive and p:getMark("fk__kuanyan_target") ~= 0
+    end) then
+      local subcards = card:isVirtual() and card.subcards or {card.id}
+      return #subcards > 0 and table.every(subcards, function(id)
+        return table.contains(player:getCardIds(Player.Hand), id)
+      end)
+    end
   end,
 }
 lvboshe:addSkill(gufu)
@@ -107,6 +115,7 @@ Fk:loadTranslationTable{
     "直至你的下个回合开始，该角色每回合使用第一张基本牌和锦囊牌后，" ..
     "你摸两张牌并交给其一张牌，若其体力值为全场最低，其回复一点体力。",
   ["#fk__kuanyan-ask"] = "款宴: 请交给 %src 一张牌",
+  ["#kuanyan_delay"] = "款宴",
   ["fk__gufu"] = "故负",
   [":fk__gufu"] = "锁定技，在成为过〖款宴〗目标的角色回合内，你不能使用或打出手牌。",
 }
@@ -676,6 +685,8 @@ Fk:loadTranslationTable{
   ["@fk__yiyong-turn"] = "义勇",
 }
 
+-- DIY5届
+
 local liyans = General(extension, "fk__liyans", "shu", 3)
 local duliang = fk.CreateActiveSkill{
   name = "fk__duliang",
@@ -772,5 +783,130 @@ Fk:loadTranslationTable{
   ["$fk__duliang2"] = "不必催督，辎重稍后即至。",
   ["~fk__liyans"] = "权迷心智，吾，枉为人臣！",
 }
+
+local fk__zumao = General(extension, "fk__zumao", "wu", 4)
+local fk__yinbing = fk.CreateTriggerSkill{
+  name = "fk__yinbing",
+  anim_type = "support",
+  events = {fk.EventPhaseStart},
+  can_trigger = function(self, event, target, player, data)
+    return player:hasSkill(self) and target == player and player.phase == Player.Finish
+  end,
+  on_cost = function(self, event, target, player, data)
+    local tos = player.room:askForChoosePlayers(player, table.map(player.room:getOtherPlayers(player), Util.IdMapper), 1, 1, "#fk__yinbing-choose", self.name, true, true)
+    if #tos > 0 then
+      self.cost_data = tos[1]
+      return true
+    end
+  end,
+  on_use = function(self, event, target, player, data)
+    local mark = U.getMark(player, self.name)
+    table.insertIfNeed(mark, self.cost_data)
+    player.room:setPlayerMark(player, self.name, mark)
+  end,
+
+  refresh_events = {fk.TurnStart},
+  can_refresh = function (self, event, target, player, data)
+    return target == player and player:getMark(self.name) ~= 0
+  end,
+  on_refresh = function (self, event, target, player, data)
+    player.room:setPlayerMark(player, self.name, 0)
+  end,
+}
+local fk__yinbing_delay = fk.CreateTriggerSkill{
+  name = "#fk__yinbing_delay",
+  mute = true,
+  events = {fk.TargetConfirming, fk.TargetConfirmed},
+  can_trigger = function(self, event, target, player, data)
+    if event == fk.TargetConfirming then
+      return not target.dead and table.contains(U.getMark(player, "fk__yinbing"), target.id) and (data.card.name == "duel" or data.card.trueName == "slash") and not table.contains(AimGroup:getAllTargets(data.tos), player.id) and not player.room:getPlayerById(data.from):isProhibited(player, data.card)
+    elseif data.extra_data and table.contains((data.extra_data.fk__yinbing or {}), player.id) then
+      local from = player.room:getPlayerById(data.from)
+      return player:canPindian(from)
+    end
+  end,
+  on_cost = Util.TrueFunc,
+  on_use = function(self, event, target, player, data)
+    local room = player.room
+    if event == fk.TargetConfirming then
+      player:broadcastSkillInvoke("fk__yinbing", 3)
+      AimGroup:addTargets(room, data, {player.id})
+      AimGroup:cancelTarget(data, target.id)
+      data.extra_data = data.extra_data or {}
+      data.extra_data.fk__yinbing = data.extra_data.fk__yinbing or {}
+      table.insertIfNeed(data.extra_data.fk__yinbing, player.id)
+      return true
+    elseif room:askForSkillInvoke(player, "fk__yinbing", nil, "#fk__yinbing-pindian:"..data.from) then
+      player:pindian({room:getPlayerById(data.from)}, "fk__yinbing")
+    end
+  end,
+}
+fk__yinbing:addRelatedSkill(fk__yinbing_delay)
+fk__zumao:addSkill(fk__yinbing)
+local fk__juedi = fk.CreateTriggerSkill{
+  name = "fk__juedi",
+  anim_type = "defensive",
+  events = {fk.TargetConfirming},
+  frequency = Skill.Compulsory,
+  can_trigger = function(self, event, target, player, data)
+    return target == player and player:hasSkill(self) and data.card.is_damage_card
+  end,
+  on_use = function(self, event, target, player, data)
+    local room = player.room
+    data.extra_data = data.extra_data or {}
+    data.extra_data.fk__juedi = data.extra_data.fk__juedi or {}
+    data.extra_data.fk__juedi[tostring(player.id)] = data.extra_data.fk__juedi[tostring(player.id)] or {}
+    for _, id in ipairs(player:drawCards(3, self.name)) do
+      if table.contains(player.player_cards[Player.Hand], id) then
+        room:setCardMark(Fk:getCardById(id), "@@fk__juedi-inhand", 1)
+        table.insertIfNeed(data.extra_data.fk__juedi[tostring(player.id)], id)
+      end
+    end
+  end,
+}
+local fk__juedi_delay = fk.CreateTriggerSkill{
+  name = "#fk__juedi_delay",
+  mute = true,
+  events = {fk.CardUseFinished},
+  frequency = Skill.Compulsory,
+  can_trigger = function(self, event, target, player, data)
+    return not player.dead and data.extra_data and data.extra_data.fk__juedi and data.extra_data.fk__juedi[tostring(player.id)]
+  end,
+  on_use = function(self, event, target, player, data)
+    local room = player.room
+    local mark = data.extra_data.fk__juedi[tostring(player.id)]
+    local throw = table.filter(player.player_cards[Player.Hand], function (id)
+      return table.contains(mark, id) and not player:prohibitDiscard(Fk:getCardById(id))
+    end)
+    if #throw > 0 then
+      room:delay(500)
+      room:throwCard(throw, self.name, player, player)
+    end
+  end,
+}
+fk__juedi:addRelatedSkill(fk__juedi_delay)
+fk__zumao:addSkill(fk__juedi)
+Fk:loadTranslationTable{
+  ["fk__zumao"] = "祖茂",
+  ["designer:fk__zumao"] = "少先队中央书记处第一书记",
+
+  ["fk__yinbing"] = "引兵",
+  [":fk__yinbing"] = "结束阶段，你可以秘密选择一名其他角色，直到你下回合开始，当其成为【杀】或【决斗】的目标时，转移给你。若如此做，你可以与此牌使用者拼点。",
+  ["fk__juedi"] = "绝地",
+  [":fk__juedi"] = "锁定技，当你成为伤害牌的目标时，你摸三张牌，此牌结算完成后，你弃置以此法获得的所有牌。",
+  ["#fk__yinbing-choose"] = "引兵：选择一名其他角色；其成为【杀】或【决斗】的目标时转移给你",
+  ["#fk__yinbing-pindian"] = "引兵：你可以与 %src 拼点",
+  ["#fk__yinbing_delay"] = "引兵",
+  ["@@fk__juedi-inhand"] = "绝地",
+  ["#fk__juedi_delay"] = "绝地",
+
+  ["$fk__yinbing1"] = "请脱赤帻，予某戴之！",
+  ["$fk__yinbing2"] = "休想动主公一根寒毛！",
+  ["$fk__yinbing3"] = "将军走此小道！",
+  ["$fk__juedi1"] = "置之死地而后生！",
+  ["$fk__juedi2"] = "主公安全，我可放心厮杀！",
+  ["~fk__zumao"] = "护主周全，夙愿已偿。",
+}
+
 
 return extension
