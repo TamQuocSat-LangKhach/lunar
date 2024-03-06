@@ -685,7 +685,8 @@ Fk:loadTranslationTable{
   ["@fk__yiyong-turn"] = "义勇",
 }
 
--- DIY5届
+-- DIY5届： 李严、祖茂、曹洪、司马炎
+-- 主催：理塘王
 
 local liyans = General(extension, "fk__liyans", "shu", 3)
 local duliang = fk.CreateActiveSkill{
@@ -907,6 +908,239 @@ Fk:loadTranslationTable{
   ["$fk__juedi2"] = "主公安全，我可放心厮杀！",
   ["~fk__zumao"] = "护主周全，夙愿已偿。",
 }
+
+local caohong = General(extension, "fk__caohong", "wei", 4)
+
+local yuanhu_active = fk.CreateActiveSkill{
+  name = "fk__yuanhu_active",
+  mute = true,
+  card_num = 1,
+  target_num = 1,
+  card_filter = function(self, to_select, selected, targets)
+    return #selected == 0 and Fk:getCardById(to_select).type == Card.TypeEquip
+  end,
+  interaction = function()
+    return UI.ComboBox {choices = {"$Equip", "$Hand"} }
+  end,
+  target_filter = function(self, to_select, selected, cards)
+    if #selected == 0 and #cards == 1 then
+      local to = Fk:currentRoom():getPlayerById(to_select)
+      if self.interaction.data == "$Equip" then
+        return to:hasEmptyEquipSlot(Fk:getCardById(cards[1]).sub_type)
+      else
+        return not (table.contains(Self.player_cards[Player.Hand], cards[1]) and to_select == Self.id)
+      end
+    end
+  end,
+}
+Fk:addSkill(yuanhu_active)
+local yuanhu = fk.CreateTriggerSkill{
+  name = "fk__yuanhu",
+  anim_type = "support",
+  events = {fk.EventPhaseStart, fk.AfterCardsMove},
+  can_trigger = function(self, event, target, player, data)
+    if event == fk.EventPhaseStart then
+      return target == player and player:hasSkill(self) and player.phase == Player.Finish and not player:isNude()
+    elseif player:hasSkill(self) then
+      local use_id
+      local e = player.room.logic:getCurrentEvent():findParent(GameEvent.UseCard)
+      if e then
+        if e.data[1].from == player.id and e.data[1].card.type == Card.TypeEquip then
+          use_id = e.data[1].card:getEffectiveId()
+        end
+      end
+      for _, move in ipairs(data) do
+        if move.toArea == Card.PlayerEquip then
+          if move.proposer == player.id or (#move.moveInfo == 1 and move.moveInfo[1].cardId == use_id) then
+            return true
+          end
+        end
+      end
+    end
+  end,
+  on_trigger = function(self, event, target, player, data)
+    if event == fk.EventPhaseStart then
+      self:doCost(event, target, player, data)
+    else
+      local list = {}
+      local use_id
+      local e = player.room.logic:getCurrentEvent():findParent(GameEvent.UseCard)
+      if e then
+        if e.data[1].from == player.id and e.data[1].card.type == Card.TypeEquip then
+          use_id = e.data[1].card:getEffectiveId()
+        end
+      end
+      for _, move in ipairs(data) do
+        if move.toArea == Card.PlayerEquip then
+          for _, info in ipairs(move.moveInfo) do
+            if move.proposer == player.id or info.cardId == use_id then
+              table.insert(list, {to = player.room:getPlayerById(move.to), card = Fk:getCardById(info.cardId, true)})
+            end
+          end
+        end
+      end
+      for _, dat in ipairs(list) do
+        if not player:hasSkill(self) then break end
+        self:doCost(event, dat.to, player, dat.card)
+      end
+    end
+  end,
+  on_cost = function(self, event, target, player, data)
+    if event == fk.EventPhaseStart then
+      local _,dat = player.room:askForUseActiveSkill(player, "fk__yuanhu_active", "#fk__yuanhu-put", true)
+      if dat then
+        self.cost_data = dat
+        return true
+      end
+    else
+      return true
+    end
+  end,
+  on_use = function (self, event, target, player, data)
+    local room = player.room
+    if event == fk.EventPhaseStart then
+      local dat = self.cost_data
+      room:moveCardTo(dat.cards, dat.interaction == "$Equip" and Card.PlayerEquip or Card.PlayerHand, room:getPlayerById(dat.targets[1]), fk.ReasonPut, self.name, nil, true, player.id)
+      room:delay(600)
+    else
+      local str = Fk:translate(":"..data.name)
+      local _, start = str:find("技能</b>")
+      if start then
+        str = str:sub(start)
+      end
+      if string.find(str, "【杀】") and not player.dead then
+        local targets = table.filter(room.alive_players, function (p) return not p:isAllNude() end)
+        if #targets > 0 then
+          local tos = room:askForChoosePlayers(player, table.map(targets, Util.IdMapper), 1, 1, "#fk__yuanhu-throw", self.name, false)
+          local to = room:getPlayerById(tos[1])
+          local card = room:askForCardChosen(player, to, "hej", self.name)
+          room:throwCard(card, self.name, to, player)
+        end
+      end
+      if string.find(str, "【闪】") and not player.dead and player:isWounded() then
+        room:recover { num = 1, skillName = self.name, who = player, recoverBy = player }
+      end
+      if string.find(str, "伤害") and not player.dead then
+        player:drawCards(1, self.name)
+      end
+      if string.find(str, "牌") and not target.dead then
+        target:drawCards(1, self.name)
+      end
+      if string.find(str, "无效") and not target.dead then
+        local tos = room:askForChoosePlayers(target, table.map(room.alive_players, Util.IdMapper), 1, 1, "#fk__yuanhu-damage", self.name, false)
+        local to = room:getPlayerById(tos[1])
+        room:damage { from = target, to = to, damage = 1, skillName = self.name }
+      end
+      if string.find(str, "距离") and not target.dead and target:isWounded() then
+        room:recover { num = 1, skillName = self.name, who = target, recoverBy = player }
+      end
+    end
+  end,
+}
+caohong:addSkill(yuanhu)
+
+local fk__qianlin = fk.CreateTriggerSkill{
+  name = "fk__qianlin",
+  events = {fk.BeforeCardsMove},
+  frequency = Skill.Compulsory,
+  anim_type = "defensive",
+  can_trigger = function(self, event, target, player, data)
+    if not player:hasSkill(self) or player:isAllNude() or player == player.room.current then return end
+    local ids = {}
+    for _, move in ipairs(data) do
+      if move.from == player.id then
+        for _, info in ipairs(move.moveInfo) do
+          if (info.fromArea >= 1 and info.fromArea <= 3) then
+            table.insert(ids, info.cardId)
+          end
+        end
+      end
+    end
+    if #ids == 0 then return end
+    local e = player.room.logic:getCurrentEvent().parent
+    if e and (e.event == GameEvent.UseCard or e.event == GameEvent.RespondCard) then
+      if e.data[1].from == player.id then
+        for _, id in ipairs(Card:getIdList(e.data[1].card)) do
+          table.removeOne(ids, id)
+        end
+      end
+    end
+    if #ids > 0 then
+      self.cost_data = ids
+      return true
+    end
+  end,
+  on_use = function(self, event, target, player, data)
+    local ids = self.cost_data
+    local sub_types = {}
+    for _, id in ipairs(ids) do
+      if player.room:getCardArea(id) == Card.PlayerEquip then
+        table.insert(sub_types, Fk:getCardById(id).sub_type)
+      end
+    end
+    local throw_moves = {}
+    for _, move in ipairs(data) do
+      local move_info = table.simpleClone(move.moveInfo)
+      if move.from == player.id then
+        for _, info in ipairs(move.moveInfo) do
+          if table.contains(ids, info.cardId) then
+            table.removeOne(move_info, info)
+          end
+        end
+      end
+      local throw_info = {}
+      if move.to == player.id and move.toArea == Card.PlayerEquip then -- 处理置换装备的情况
+        for i = #move_info, 1, -1 do
+          local info = move_info[i]
+          if table.contains(sub_types, Fk:getCardById(info.cardId).sub_type) then
+            table.insert(throw_info, table.remove(move_info, i))
+          end
+        end
+      end
+      move.moveInfo = move_info
+      if #throw_info > 0 then
+        local _move = table.simpleClone(move)
+        _move.moveInfo = throw_info
+        _move.moveReason = fk.ReasonPutIntoDiscardPile
+        _move.to = nil
+        _move.toArea = Card.DiscardPile
+        table.insert(throw_moves, _move)
+      end
+    end
+    if #throw_moves > 0 then
+      table.insertTable(data, throw_moves)
+    end
+  end,
+}
+caohong:addSkill(fk__qianlin)
+
+Fk:loadTranslationTable{
+  ["fk__caohong"] = "曹洪",
+  ["#fk__caohong"] = "献马救主",
+  ["designer:fk__caohong"] = "千芬局",
+	["illustrator:fk__caohong"] = "鬼画府",
+
+  ["fk__yuanhu"] = "援护",
+  [":fk__yuanhu"] = "结束阶段，你可以将一张装备牌置入一名角色的装备区或手牌中。当你将一张装备牌置入一名角色的装备区时，若此牌包含以下内容："..
+  "<br>【杀】，你弃置一名角色的区域里的一张牌；"..
+  "<br>【闪】，你回复1点体力；"..
+  "<br>伤害，你摸一张牌；"..
+  "<br>无效，其对一名角色造成1点伤害；"..
+  "<br>距离，其回复1点体力；"..
+  "<br>牌，其摸一张牌。",
+  ["fk__yuanhu_active"] = "援护",
+  ["#fk__yuanhu-put"] = "援护：你可以将一张装备牌置入一名角色的装备区或手牌中",
+  ["#fk__yuanhu-throw"] = "援护：弃置一名角色的区域里的一张牌",
+  ["#fk__yuanhu-damage"] = "援护：对一名角色造成1点伤害",
+  ["fk__qianlin"] = "悭吝",
+  [":fk__qianlin"] = "锁定技，你的回合外，你区域内的牌只能通过你使用或打出的方式离开你的区域。",
+
+  ["$fk__yuanhu1"] = "若无趁手兵器，不妨试试我这把！",
+  ["$fk__yuanhu2"] = "此乃良驹，愿助将军日行千里！",
+  ["~fk__caohong"] = "将军，多保重。",
+}
+
+
 
 
 return extension
