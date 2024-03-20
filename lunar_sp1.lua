@@ -1140,6 +1140,161 @@ Fk:loadTranslationTable{
   ["~fk__caohong"] = "将军，多保重。",
 }
 
+local fk__simayan = General(extension, "fk__simayan", "jin", 4)
+
+local fk__zhice = fk.CreateTriggerSkill{
+  name = "fk__zhice",
+  events = {fk.AfterCardsMove},
+  anim_type = "drawcard",
+  can_trigger = function(self, event, target, player, data)
+    if player:hasSkill(self) and player ~= player.room.current then
+      for _, move in ipairs(data) do
+        if move.to == player.id and move.toArea == Player.Hand then
+          return true
+        end
+      end
+    end
+  end,
+  on_cost = function (self, event, target, player, data)
+    local room = player.room
+    local targets = table.filter(room.alive_players, function (p) return p:getHandcardNum() <= player:getHandcardNum()
+    and not p:isNude() end)
+    local tos = room:askForChoosePlayers(player, table.map(targets, Util.IdMapper), 1, 1, "#fk__zhice-choose", self.name, true)
+    if #tos > 0 then
+      self.cost_data = tos[1]
+      return true
+    end
+  end,
+  on_use = function(self, event, target, player, data)
+    local room = player.room
+    local to = room:getPlayerById(self.cost_data)
+    local cards = room:askForDiscard(to, 1, 9999, true, self.name, true, ".|.|.|.|.|equip", "#fk__zhice-card")
+    if not to.dead and #cards > 0 then
+      to:drawCards(#cards, self.name)
+    end
+  end,
+}
+fk__simayan:addSkill(fk__zhice)
+
+local fk__taikang = fk.CreateTriggerSkill{
+  name = "fk__taikang",
+
+  refresh_events = {fk.GameStart, fk.EventAcquireSkill, fk.EventLoseSkill, fk.Deathed, fk.AfterCardUseDeclared},
+  can_refresh = function(self, event, target, player, data)
+    if event == fk.GameStart then
+      return player:hasSkill(self, true)
+    elseif event == fk.EventAcquireSkill or event == fk.EventLoseSkill then
+      return target == player and data == self and
+        not table.find(player.room:getOtherPlayers(player), function(p) return p:hasSkill(self, true) end)
+    elseif event == fk.AfterCardUseDeclared then
+      return target == player and player:getMark("@@fk__taikang-turn") > 0 and data.card.type == Card.TypeBasic
+    else
+      return target == player and player:hasSkill(self, true, true) and
+        not table.find(player.room:getOtherPlayers(player), function(p) return p:hasSkill(self, true) end)
+    end
+  end,
+  on_refresh = function(self, event, target, player, data)
+    local room = player.room
+    if event == fk.GameStart or event == fk.EventAcquireSkill then
+      for _, p in ipairs(room:getOtherPlayers(player)) do
+        room:handleAddLoseSkills(p, "fk__taikang_other&", nil, false, true)
+      end
+    elseif event == fk.AfterCardUseDeclared then
+      room:setPlayerMark(player, "@@fk__taikang-turn", 0)
+      data.additionalEffect = (data.additionalEffect or 0) + 1
+    else
+      for _, p in ipairs(room:getOtherPlayers(player, true, true)) do
+        room:handleAddLoseSkills(p, "-fk__taikang_other&", nil, false, true)
+      end
+    end
+  end,
+}
+local fk__taikang_other = fk.CreateActiveSkill{
+  name = "fk__taikang_other&",
+  mute = true,
+  card_num = 1,
+  target_num = 1,
+  prompt = "#fk__taikang-prompt",
+  can_use = function(self, player)
+    return player:usedSkillTimes(self.name, Player.HistoryPhase) == 0
+  end,
+  card_filter = function (self, to_select, selected)
+    return #selected == 0
+  end,
+  target_filter = function (self, to_select, selected, cards)
+    if #selected == 0 and to_select ~= Self.id and #cards == 1 then
+      local to = Fk:currentRoom():getPlayerById(to_select)
+      return to:hasSkill("fk__taikang") and not to:isNude()
+    end
+  end,
+  on_use = function(self, room, effect)
+    local player = room:getPlayerById(effect.from)
+    local to = room:getPlayerById(effect.tos[1])
+    to:broadcastSkillInvoke("fk__taikang")
+    room:notifySkillInvoked(to, "fk__taikang", "drawcard")
+    room:doIndicate(player.id, {to.id})
+    room:recastCard(effect.cards, player, "fk__taikang")
+    if to.dead or to:isNude() then return end
+    local cards = room:askForCard(to, 1, 1, true, "fk__taikang", false, ".", "#fk__taikang-card")
+    room:recastCard(cards, to, "fk__taikang")
+    if to.dead or to:isNude() or player.dead then return end
+    if #room:askForDiscard(to, 1, 1, true, "fk__taikang", true, ".", "#fk__taikang-cost:"..player.id) > 0 and not player.dead then
+      room:setPlayerMark(player, "@@fk__taikang-turn", 1)
+    end
+  end,
+}
+Fk:addSkill(fk__taikang_other)
+fk__simayan:addSkill(fk__taikang)
+
+local fk__zongshe = fk.CreateTriggerSkill{
+  name = "fk__zongshe$",
+  anim_type = "drawcard",
+  events = {fk.CardUsing},
+  can_trigger = function(self, event, target, player, data)
+    return target ~= player and player:hasSkill(self) and target.kingdom == "jin" and data.card.type == Card.TypeBasic
+    and target:getHandcardNum() >= player:getHandcardNum()
+  end,
+  on_cost = function (self, event, target, player, data)
+    return player.room:askForSkillInvoke(player, self.name, nil, "#fk__zongshe-invoke:"..target.id)
+  end,
+  on_use = function(self, event, target, player, data)
+    local room = player.room
+    room:doIndicate(player.id, {target.id})
+    local tos = {player.id, target.id}
+    room:sortPlayersByAction(tos)
+    for _, pid in ipairs(tos) do
+      if not room:getPlayerById(pid).dead then
+        room:getPlayerById(pid):drawCards(1, self.name)
+      end
+    end
+  end,
+}
+fk__simayan:addSkill(fk__zongshe)
+
+Fk:loadTranslationTable{
+  ["fk__simayan"] = "司马炎",
+  ["#fk__simayan"] = "伟业的终主",
+  ["designer:fk__simayan"] = "三无少女不会卖萌",
+  
+  ["fk__zhice"] = "制策",
+  [":fk__zhice"] = "当你于回合外获得牌时，你可以令一名手牌数不大于你的角色弃置任意张装备牌并摸等量牌。",
+  ["#fk__zhice-choose"] = "制策：可以令一名手牌数不大于你的角色弃置任意张装备牌并摸等量牌",
+  ["#fk__zhice-card"] = "制策：你可以弃置任意张装备牌并摸等量牌",
+
+  ["fk__taikang"] = "太康",
+  [":fk__taikang"] = "每名其他角色出牌阶段限一次，其可与你各重铸一张牌，然后你可以弃一张牌令其本回合使用的下一张基本牌额外结算一次。",
+  ["#fk__taikang-card"] = "太康：请重铸一张牌",
+  ["#fk__taikang-cost"] = "太康：你可以弃一张牌令 %src 本回合使用的下一张基本牌额外结算一次",
+  ["fk__taikang_other&"] = "太康",
+  [":fk__taikang_other&"] = "你可与拥有“太康”的其他角色各重铸一张牌，然后其可以弃一张牌令你本回合使用的下一张基本牌额外结算一次。",
+  ["@@fk__taikang-turn"] = "太康",
+  ["#fk__taikang-prompt"] = "太康：与拥有“太康”的其他角色各重铸一张牌",
+
+  ["fk__zongshe"] = "纵奢",
+  [":fk__zongshe"] = "主公技，其他晋势力角色使用基本牌时，若其手牌数不小于你，你可与其各摸一张牌。",
+  ["#fk__zongshe-invoke"] = "纵奢：你可以与 %src 各摸一张牌",
+}
+
 
 
 
