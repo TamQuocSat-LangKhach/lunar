@@ -1295,6 +1295,146 @@ Fk:loadTranslationTable{
   ["#fk__zongshe-invoke"] = "纵奢：你可以与 %src 各摸一张牌",
 }
 
+local yuanwei = General(extension, "fk__yuanwei", "qun", 4)
+
+local chongwei = fk.CreateActiveSkill{
+  name = "fk__chongwei",
+  anim_type = "offensive",
+  card_num = 0,
+  target_num = 1,
+  card_filter = Util.FalseFunc,
+  target_filter = function(self, to_select, selected)
+    return #selected == 0 and Self.id ~= to_select
+  end,
+  can_use = function(self, player)
+    return player:usedSkillTimes(self.name, Player.HistoryPhase) == 0
+  end,
+  on_use = function(self, room, effect)
+    local player = room:getPlayerById(effect.from)
+    local to = room:getPlayerById(effect.tos[1])
+    local all_choices = {"#fk__chongwei_change:"..player.id, "#fk__chongwei_hurt:"..player.id}
+    local choices = {}
+    if to.kingdom ~= player.kingdom then
+      table.insert(choices, all_choices[1])
+    end
+    if #table.filter(player:getCardIds("he"), function(id) return not player:prohibitDiscard(id) end) > 1 then
+      table.insert(choices, all_choices[2])
+    end
+    if #choices == 0 then return end
+    local choice = room:askForChoice(to, choices, self.name, "", false, all_choices)
+    if choice:startsWith("#fk__chongwei_change") then
+      room:changeKingdom(to, player.kingdom, true)
+      if player.dead or to.dead then return end
+      to:drawCards(2, self.name)
+      if player.dead or to.dead then return end
+      local cards = to:getCardIds("he")
+      if #cards > 2 then
+        cards = room:askForCard(to, 2, 2, true, self.name, false, ".", "#fk__chongwei-give:"..player.id)
+      end
+      room:moveCardTo(cards, Player.Hand, player, fk.ReasonGive, self.name, nil, false, to.id)
+    else
+      local cards = room:askForDiscard(player, 2, 999, true, self.name, false, ".", "#fk__chongwei-card:"..to.id)
+      if to.dead then return end
+      if to:isNude() or room:askForChoice(player, {"#fk__chongwei_throw", "#fk__chongwei_damage"}, self.name) == "#fk__chongwei_damage"
+      then
+        room:doIndicate(player.id, {to.id})
+        room:damage { from = player, to = to, damage = 1, skillName = self.name }
+      else
+        local x = math.min(#cards, #to:getCardIds("he"))
+        local throw = room:askForCardsChosen(player, to, x, x, "he", self.name)
+        room:throwCard(throw, self.name, to, player)
+      end
+    end
+  end,
+}
+yuanwei:addSkill(chongwei)
+
+local zuhuo = fk.CreateTriggerSkill{
+  name = "fk__zuhuo",
+  mute = true,
+  frequency = Skill.Compulsory,
+  events = {fk.TargetSpecifying, fk.DrawNCards},
+  can_trigger = function(self, event, target, player, data)
+    if event == fk.DrawNCards then
+      return target == player and player:hasSkill(self) and table.find(player.room.alive_players, function (p)
+        return p.kingdom == player.kingdom and p ~= player
+      end)
+    else
+      return target ~= player and player:hasSkill(self) and player.kingdom == target.kingdom and player:getHandcardNum() > player.hp
+      and data.card.is_damage_card and player.room:getPlayerById(data.to).seat == 1
+    end
+  end,
+  on_use = function(self, event, target, player, data)
+    local room = player.room
+    player:broadcastSkillInvoke(self.name)
+    if event == fk.DrawNCards then
+      room:notifySkillInvoked(player, self.name, "drawcard")
+      data.n = data.n + #table.filter(room.alive_players, function (p)
+        return p.kingdom == player.kingdom and p ~= player
+      end)
+    else
+      room:notifySkillInvoked(player, self.name, "negative")
+      if not table.contains(AimGroup:getAllTargets(data.tos), player.id) and U.canTransferTarget (player, data, false) then
+        AimGroup:addTargets(room, data, player.id)
+        room:sendLog{ type = "#AddTargetsBySkill", from = data.from, to = {player.id}, arg = self.name, arg2 = data.card:toLogString() }
+        room:doIndicate(data.from, {player.id})
+      end
+      data.extra_data = data.extra_data or {}
+      data.extra_data.fk__zuhuo = data.extra_data.fk__zuhuo or {}
+      table.insert(data.extra_data.fk__zuhuo, player.id)
+    end
+  end,
+}
+local zuhuo_delay = fk.CreateTriggerSkill{
+  name = "#fk__zuhuo_delay",
+  anim_type = "negative",
+  frequency = Skill.Compulsory,
+  events = {fk.DamageInflicted},
+  can_trigger = function(self, event, target, player, data)
+    if target == player then
+      local e = player.room.logic:getCurrentEvent():findParent(GameEvent.CardEffect)
+      if e then
+        local use = e.data[1]
+        return use.extra_data and table.contains(use.extra_data.fk__zuhuo or {}, player.id)
+      end
+    end
+  end,
+  on_use = function(self, event, target, player, data)
+    data.damage = data.damage + 1
+  end,
+}
+zuhuo:addRelatedSkill(zuhuo_delay)
+local zuhuo_maxcards = fk.CreateMaxCardsSkill{
+  name = "#fk__zuhuo_maxcards",
+  correct_func = function(self, player)
+    if player:hasSkill(zuhuo) then
+      return #table.filter(Fk:currentRoom().alive_players, function (p)
+        return p.kingdom == player.kingdom and player ~= p
+      end)
+    end
+  end,
+}
+zuhuo:addRelatedSkill(zuhuo_maxcards)
+yuanwei:addSkill(zuhuo)
+
+Fk:loadTranslationTable{
+  ["fk__yuanwei"] = "袁隗",
+  ["#fk__yuanwei"] = "福兮祸所伏",
+  ["designer:fk__yuanwei"] = "蛋水",
+  
+  ["fk__chongwei"] = "崇位",
+  [":fk__chongwei"] = "出牌阶段限一次，你可以令一名其他角色选择一项：变更势力至与你相同，然后摸两张牌并交给你两张牌；你弃置至少两张牌，然后弃置其等量牌或对其造成1点伤害。",
+  ["#fk__chongwei_change"] = "变更势力与 %src 相同，摸两张牌并交给其两张牌",
+  ["#fk__chongwei_hurt"] = "%src 弃置至少两张牌，弃置你等量牌或对你造成1点伤害",
+  ["#fk__chongwei-card"] = "崇位：弃置至少两张牌，然后弃置 %src 等量牌或对其造成1点伤害",
+  ["#fk__chongwei-give"] = "崇位：请交给 %src 两张牌",
+  ["#fk__chongwei_throw"] = "弃置其等量牌",
+  ["#fk__chongwei_damage"] = "对其造成1点伤害",
+
+  ["fk__zuhuo"] = "族祸",
+  [":fk__zuhuo"] = "锁定技，你的额定摸牌数和手牌上限+X（X为与你势力相同的其他存活角色数）；与你势力相同的其他角色使用伤害牌指定一号位为目标时，若你的手牌数大于体力值，你也成为此牌目标且你受到此牌造成的伤害+1。",
+  ["#fk__zuhuo_delay"] = "族祸",
+}
 
 
 
