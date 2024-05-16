@@ -432,9 +432,6 @@ local fk__gushou = fk.CreateTriggerSkill{
   name = "fk__gushou",
   events = {fk.DamageInflicted},
   anim_type = "defensive",
-  can_trigger = function(self, event, target, player, data)
-    return player:hasSkill(self) and player == target
-  end,
   on_cost = function(self, event, target, player, data)
     local room = player.room
     local choices = {}
@@ -658,19 +655,12 @@ local fk__yiyong = fk.CreateTriggerSkill{
     return target == player and player:hasSkill(self) and data.to:getHandcardNum() > player:getHandcardNum()
   end,
   on_use = function (self, event, target, player, data)
+    local room = player.room
     player:drawCards(2, self.name)
-    player.room:addPlayerMark(player, "@fk__yiyong-turn")
+    room:addPlayerMark(player, "@fk__yiyong-turn")
+    room:addPlayerMark(player, MarkEnum.SlashResidue .. "-turn")
   end
 }
-local fk__yiyong_buff = fk.CreateTargetModSkill{
-  name = "#fk__yiyong_buff",
-  residue_func = function(self, player, skill, scope)
-    if player:getMark("@fk__yiyong-turn") ~= 0 and skill.trueName == "slash_skill" and scope == Player.HistoryPhase then
-      return player:getMark("@fk__yiyong-turn")
-    end
-  end,
-}
-fk__yiyong:addRelatedSkill(fk__yiyong_buff)
 zhangwei:addSkill(fk__yiyong)
 Fk:loadTranslationTable{
   ["fk__zhangwei"] = "张葳",
@@ -1118,7 +1108,7 @@ Fk:loadTranslationTable{
   ["fk__caohong"] = "曹洪",
   ["#fk__caohong"] = "献马救主",
   ["designer:fk__caohong"] = "千芬局",
-	["illustrator:fk__caohong"] = "鬼画府",
+  ["illustrator:fk__caohong"] = "鬼画府",
 
   ["fk__yuanhu"] = "援护",
   [":fk__yuanhu"] = "结束阶段，你可以将一张装备牌置入一名角色的装备区或手牌中。当你将一张装备牌置入一名角色的装备区时，若此牌包含以下内容："..
@@ -1275,7 +1265,7 @@ Fk:loadTranslationTable{
   ["fk__simayan"] = "司马炎",
   ["#fk__simayan"] = "伟业的终主",
   ["designer:fk__simayan"] = "三无少女不会卖萌",
-  
+
   ["fk__zhice"] = "制策",
   [":fk__zhice"] = "当你于回合外获得牌时，你可以令一名手牌数不大于你的角色弃置任意张装备牌并摸等量牌。",
   ["#fk__zhice-choose"] = "制策：可以令一名手牌数不大于你的角色弃置任意张装备牌并摸等量牌",
@@ -1422,7 +1412,7 @@ Fk:loadTranslationTable{
   ["fk__yuanwei"] = "袁隗",
   ["#fk__yuanwei"] = "福兮祸所伏",
   ["designer:fk__yuanwei"] = "蛋水",
-  
+
   ["fk__chongwei"] = "崇位",
   [":fk__chongwei"] = "出牌阶段限一次，你可以令一名其他角色选择一项：变更势力至与你相同，然后摸两张牌并交给你两张牌；你弃置至少两张牌，然后弃置其等量牌或对其造成1点伤害。",
   ["#fk__chongwei_change"] = "变更势力与 %src 相同，摸两张牌并交给其两张牌",
@@ -1618,7 +1608,7 @@ Fk:loadTranslationTable{
   ["fk__wangsu"] = "王肃",
   ["#fk__wangsu"] = "由文而济",
   ["designer:fk__wangsu"] = "三无少女不会卖萌",
-  
+
   ["fk__jingzhu"] = "经注",
   [":fk__jingzhu"] = "锁定技，每当实体牌对你结算结束后，你须选择一项：1.将此牌置于你武将牌上，称为“经注”；2.观看一名其他角色手牌，然后你可以移去一张“经注”并使用其手牌中一张与移去的“经注”相同类型、不同牌名的牌。",
   ["#fk__jingzhu_put"] = "将%arg置入“经注”",
