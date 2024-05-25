@@ -528,6 +528,7 @@ local fk__guzhu = fk.CreateTriggerSkill{
   events = {fk.TargetSpecified},
   can_trigger = function(self, event, target, player, data)
     return player:hasSkill(self) and data.card.type == Card.TypeBasic and data.firstTarget and not player:isKongcheng()
+    and table.every(player.player_cards[Player.Hand], function(id) return not player:prohibitDiscard(Fk:getCardById(id)) end)
   end,
   on_cost = function (self, event, target, player, data)
     return player.room:askForSkillInvoke(player, self.name, data, "#fk__guzhu-invoke::"..target.id..":"..data.card.name)
