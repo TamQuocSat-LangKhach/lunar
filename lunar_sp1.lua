@@ -1266,6 +1266,8 @@ Fk:loadTranslationTable{
   ["fk__simayan"] = "司马炎",
   ["#fk__simayan"] = "伟业的终主",
   ["designer:fk__simayan"] = "三无少女不会卖萌",
+  ["cv:fk__simayan"] = "ZQ",
+  ["illustrator:fk__simayan"] = "率土之滨",
 
   ["fk__zhice"] = "制策",
   [":fk__zhice"] = "当你于回合外获得牌时，你可以令一名手牌数不大于你的角色弃置任意张装备牌并摸等量牌。",
@@ -1284,7 +1286,15 @@ Fk:loadTranslationTable{
   ["fk__zongshe"] = "纵奢",
   [":fk__zongshe"] = "主公技，其他晋势力角色使用基本牌时，若其手牌数不小于你，你可与其各摸一张牌。",
   ["#fk__zongshe-invoke"] = "纵奢：你可以与 %src 各摸一张牌",
-}
+
+  ["$fk__zhice1"] = "孙吴暴悖，三军奋锐，代朕行诛。",
+  ["$fk__zhice2"] = "卷甲长驱，务使江东不复血刃。",
+  ["$fk__taikang1"] = "炎虔奉皇运，钦承休命，以永答民望。",
+  ["$fk__taikang2"] = "天序不可无统，人神不可旷主。",
+  ["$fk__zongshe1"] = "骄代浮华？此等妄语，勿复言之。",
+  ["$fk__zongshe2"] = "海内无事，朝露促促，卿等当与朕同此荣乐。",
+  ["~fk__simayan"] = "人之无情，终至于此……",
+  }
 
 -- DIY6届：袁隗 王肃
 -- 主催：理塘王
@@ -1609,6 +1619,9 @@ Fk:loadTranslationTable{
   ["fk__wangsu"] = "王肃",
   ["#fk__wangsu"] = "由文而济",
   ["designer:fk__wangsu"] = "三无少女不会卖萌",
+  ["cv:fk__wangsu"] = "万事屋",
+  ["illustrator:fk__wangsu"] = "率土之滨",
+
 
   ["fk__jingzhu"] = "经注",
   [":fk__jingzhu"] = "锁定技，每当实体牌对你结算结束后，你须选择一项：1.将此牌置于你武将牌上，称为“经注”；2.观看一名其他角色手牌，然后你可以移去一张“经注”并使用其手牌中一张与移去的“经注”相同类型、不同牌名的牌。",
@@ -1626,7 +1639,14 @@ Fk:loadTranslationTable{
   ["fk__weilun"] = "伪论",
   [":fk__weilun"] = "锁定技，当有牌移入游戏后，你摸一张牌并令武将牌上第X个技能本回合失效（X为你本回合此技能已发动的次数）。",
   ["@fk__weilun-turn"] = "伪论",
-}
+
+  ["$fk__jingzhu1"] = "夫子没而微言绝，后学当治经明义。",
+  ["$fk__jingzhu2"] = "秦火重而群经毁，我辈须彰灼圣训。",
+  ["$fk__yuanxue1"] = "君子于学，当穷书籍、厚德行。",
+  ["$fk__yuanxue2"] = "雕凿诗礼，钻之弥坚；追述先圣，行之弥远。",
+  ["$fk__weilun1"] = "康成公之注，发明大义而已。",
+  ["$fk__weilun2"] = "诸子聚讼莫决者，必以圣言为定论。",
+  ["~fk__wangsu"] = "一愧先圣，二愧国家，三愧……仁义。",}
 
 
 return extension
