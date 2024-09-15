@@ -31,7 +31,7 @@ local kuanyan = fk.CreateActiveSkill{
     local card = effect.cards[1]
     room:throwCard(card, self.name, player, player)
     if player.dead or to.dead then return end
-    local mark = U.getMark(player, self.name)
+    local mark = player:getTableMark(self.name)
     table.insertIfNeed(mark, to.id)
     room:setPlayerMark(player, self.name, mark)
     room:setPlayerMark(to, "fk__kuanyan_target", 1)
@@ -42,7 +42,7 @@ local kuanyan_delay = fk.CreateTriggerSkill{
   mute = true,
   events = {fk.CardUseFinished},
   can_trigger = function(self, event, target, player, data)
-    if player:hasSkill(self) and table.contains(U.getMark(player, "fk__kuanyan"), target.id) and data.card.type ~= Card.TypeEquip then
+    if player:hasSkill(self) and table.contains(player:getTableMark("fk__kuanyan"), target.id) and data.card.type ~= Card.TypeEquip then
       local events = player.room.logic:getEventsOfScope(GameEvent.UseCard, 1, function(e)
         local use = e.data[1]
         return use.from == target.id and use.card.type == data.card.type
@@ -368,15 +368,7 @@ local fk__guici = fk.CreateTriggerSkill{
       end
     end
     if #get > 0 then
-      local dummy = Fk:cloneCard("dilu")
-      dummy:addSubcards(get)
-      room:obtainCard(player, dummy, false, fk.ReasonPrey)
-      local handcards = player:getCardIds("h")
-      for _, id in ipairs(get) do
-        if table.contains(handcards, id) then
-          room:setCardMark(Fk:getCardById(id), "@@fk__guici-inhand", 1)
-        end
-      end
+      room:obtainCard(player, get, false, fk.ReasonPrey, player.id, self.name, "@@fk__guici-inhand")
     end
   end,
 }
@@ -392,14 +384,15 @@ local fk__beili = fk.CreateTriggerSkill{
     local room = player.room
     local card = room:askForDiscard(player, 1, 1, true, self.name, true, ".", "#fk__beili-discard::"..target.id, true)
     if #card > 0 then
-      self.cost_data = card
+      self.cost_data = {cards = card, tos = {target.id}}
       return true
     end
   end,
   on_use = function(self, event, target, player, data)
     local room = player.room
-    local draw = Fk:getCardById(self.cost_data[1]):getMark("@@fk__guici-inhand") > 0
-    room:throwCard(self.cost_data, self.name, player, player)
+    local cards = table.simpleClone(self.cost_data.cards)
+    local draw = Fk:getCardById(cards[1]):getMark("@@fk__guici-inhand") > 0
+    room:throwCard(cards, self.name, player, player)
     if not target.dead then
       target:drawCards(1, self.name)
     end
@@ -792,7 +785,7 @@ local fk__yinbing = fk.CreateTriggerSkill{
     end
   end,
   on_use = function(self, event, target, player, data)
-    local mark = U.getMark(player, self.name)
+    local mark = player:getTableMark(self.name)
     table.insertIfNeed(mark, self.cost_data)
     player.room:setPlayerMark(player, self.name, mark)
   end,
@@ -811,7 +804,7 @@ local fk__yinbing_delay = fk.CreateTriggerSkill{
   events = {fk.TargetConfirming, fk.TargetConfirmed},
   can_trigger = function(self, event, target, player, data)
     if event == fk.TargetConfirming then
-      return not target.dead and table.contains(U.getMark(player, "fk__yinbing"), target.id) and (data.card.name == "duel" or data.card.trueName == "slash") and not table.contains(AimGroup:getAllTargets(data.tos), player.id) and not player.room:getPlayerById(data.from):isProhibited(player, data.card)
+      return not target.dead and table.contains(player:getTableMark("fk__yinbing"), target.id) and (data.card.name == "duel" or data.card.trueName == "slash") and not table.contains(AimGroup:getAllTargets(data.tos), player.id) and not player.room:getPlayerById(data.from):isProhibited(player, data.card)
     elseif data.extra_data and table.contains((data.extra_data.fk__yinbing or {}), player.id) then
       local from = player.room:getPlayerById(data.from)
       return player:canPindian(from)
@@ -1599,7 +1592,7 @@ local fk__weilun = fk.CreateTriggerSkill{
     end
     local skill = skills[x]
     if skill then
-      local mark = U.getMark(player, "fk__weilun_skill-turn")
+      local mark = player:getTableMark("fk__weilun_skill-turn")
       table.insert(mark, skill)
       room:setPlayerMark(player, "fk__weilun_skill-turn", mark)
     end
@@ -1609,7 +1602,7 @@ local fk__weilun = fk.CreateTriggerSkill{
 local fk__weilun_invalidity = fk.CreateInvaliditySkill {
   name = "#fk__weilun_invalidity",
   invalidity_func = function(self, player, skill)
-    return table.contains(U.getMark(player, "fk__weilun_skill-turn"), skill.name)
+    return table.contains(player:getTableMark("fk__weilun_skill-turn"), skill.name)
   end
 }
 fk__weilun:addRelatedSkill(fk__weilun_invalidity)
