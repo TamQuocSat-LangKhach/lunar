@@ -299,7 +299,7 @@ local fk__yicha = fk.CreateTriggerSkill{
     end
   end,
   on_refresh = function(self, event, target, player, data)
-    player.room:setPlayerMark(player, "@fk__yicha-turn", table.concat(table.map(player:getMark("fk__yicha-turn"), function(s) return Fk:translate(s) end)))
+    player.room:setPlayerMark(player, "@fk__yicha-turn", table.concat(table.map(player:getMark("fk__yicha-turn"), Util.TranslateMapper)))
   end
 }
 guoyouzhi:addSkill(fk__zhongyu)
