@@ -610,22 +610,22 @@ local fk__xiaorong = fk.CreateTriggerSkill{
   anim_type = "offensive",
   events = {fk.AfterCardTargetDeclared},
   can_trigger = function (self, event, target, player, data)
-    return target == player and player:hasSkill(self) and data.card.trueName == "slash" and #TargetGroup:getRealTargets(data.tos) == 1 and table.find(player.room.alive_players, function (p)
-      return p:distanceTo(player) == 1
-    end)
+    return target == player and player:hasSkill(self) and data.card.trueName == "slash" and
+      #TargetGroup:getRealTargets(data.tos) == 1 and
+      table.find(player.room.alive_players, function (p)
+        return p:distanceTo(player) == 1
+      end) and #player.room:getUseExtraTargets(data) > 0
   end,
   on_cost = function (self, event, target, player, data)
     local room = player.room
-    local targets = U.getUseExtraTargets(room, data)
-    if #targets > 0 then
-      local num = #table.filter(player.room.alive_players, function (p)
-        return p:distanceTo(player) == 1
-      end)
-      local tos = room:askForChoosePlayers(player, targets, 1, num, "#fk__xiaorong:::" .. num, self.name, true)
-      if #tos > 0 then
-        self.cost_data = tos
-        return true
-      end
+    local targets = room:getUseExtraTargets(data)
+    local num = #table.filter(player.room.alive_players, function (p)
+      return p:distanceTo(player) == 1
+    end)
+    local tos = room:askForChoosePlayers(player, targets, 1, num, "#fk__xiaorong:::" .. num, self.name, true)
+    if #tos > 0 then
+      self.cost_data = tos
+      return true
     end
   end,
   on_use = function (self, event, target, player, data)
