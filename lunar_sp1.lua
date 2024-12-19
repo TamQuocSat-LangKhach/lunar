@@ -31,9 +31,7 @@ local kuanyan = fk.CreateActiveSkill{
     local card = effect.cards[1]
     room:throwCard(card, self.name, player, player)
     if player.dead or to.dead then return end
-    local mark = player:getTableMark(self.name)
-    table.insertIfNeed(mark, to.id)
-    room:setPlayerMark(player, self.name, mark)
+    room:addTableMarkIfNeed(player, self.name, to.id)
     room:setPlayerMark(to, "fk__kuanyan_target", 1)
   end
 }
@@ -1591,9 +1589,7 @@ local fk__weilun = fk.CreateTriggerSkill{
     end
     local skill = skills[x]
     if skill then
-      local mark = player:getTableMark("fk__weilun_skill-turn")
-      table.insert(mark, skill)
-      room:setPlayerMark(player, "fk__weilun_skill-turn", mark)
+      room:addTableMark(player, "fk__weilun_skill-turn", skill)
     end
     player:drawCards(1, self.name)
   end,
