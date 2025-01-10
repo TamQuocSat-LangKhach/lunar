@@ -775,7 +775,7 @@ local fk__yinbing = fk.CreateTriggerSkill{
     return player:hasSkill(self) and target == player and player.phase == Player.Finish
   end,
   on_cost = function(self, event, target, player, data)
-    local tos = player.room:askForChoosePlayers(player, table.map(player.room:getOtherPlayers(player), Util.IdMapper), 1, 1, "#fk__yinbing-choose", self.name, true, true)
+    local tos = player.room:askForChoosePlayers(player, table.map(player.room:getOtherPlayers(player, false), Util.IdMapper), 1, 1, "#fk__yinbing-choose", self.name, true, true)
     if #tos > 0 then
       self.cost_data = tos[1]
       return true
@@ -1159,35 +1159,15 @@ fk__simayan:addSkill(fk__zhice)
 
 local fk__taikang = fk.CreateTriggerSkill{
   name = "fk__taikang",
+  attached_skill_name = "fk__taikang_other&",
 
-  refresh_events = {fk.GameStart, fk.EventAcquireSkill, fk.EventLoseSkill, fk.Deathed, fk.AfterCardUseDeclared},
+  refresh_events = {fk.AfterCardUseDeclared},
   can_refresh = function(self, event, target, player, data)
-    if event == fk.GameStart then
-      return player:hasSkill(self, true)
-    elseif event == fk.EventAcquireSkill or event == fk.EventLoseSkill then
-      return target == player and data == self and
-        not table.find(player.room:getOtherPlayers(player), function(p) return p:hasSkill(self, true) end)
-    elseif event == fk.AfterCardUseDeclared then
-      return target == player and player:getMark("@@fk__taikang-turn") > 0 and data.card.type == Card.TypeBasic
-    else
-      return target == player and player:hasSkill(self, true, true) and
-        not table.find(player.room:getOtherPlayers(player), function(p) return p:hasSkill(self, true) end)
-    end
+    return target == player and player:getMark("@@fk__taikang-turn") > 0 and data.card.type == Card.TypeBasic
   end,
   on_refresh = function(self, event, target, player, data)
-    local room = player.room
-    if event == fk.GameStart or event == fk.EventAcquireSkill then
-      for _, p in ipairs(room:getOtherPlayers(player)) do
-        room:handleAddLoseSkills(p, "fk__taikang_other&", nil, false, true)
-      end
-    elseif event == fk.AfterCardUseDeclared then
-      room:setPlayerMark(player, "@@fk__taikang-turn", 0)
-      data.additionalEffect = (data.additionalEffect or 0) + 1
-    else
-      for _, p in ipairs(room:getOtherPlayers(player, true, true)) do
-        room:handleAddLoseSkills(p, "-fk__taikang_other&", nil, false, true)
-      end
-    end
+    player.room:setPlayerMark(player, "@@fk__taikang-turn", 0)
+    data.additionalEffect = (data.additionalEffect or 0) + 1
   end,
 }
 local fk__taikang_other = fk.CreateActiveSkill{
